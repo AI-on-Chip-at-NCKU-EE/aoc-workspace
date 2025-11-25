@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM ubuntu:22.04 AS builder
+FROM ubuntu:24.04 AS builder
 
 ## set as non-interactive mode
 ENV DEBIAN_FRONTEND=noninteractive
@@ -7,7 +7,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 ## set time zone env var
 ENV TZ=Asia/Taipei
 
-## install basic packages
 RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y bash openssh-server sudo && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -15,7 +14,7 @@ RUN apt-get update && apt-get upgrade -y && \
 ## set default shell as bash
 CMD ["/bin/bash"]
 
-## remove root password
+## set backup password for root
 RUN passwd -d root
 
 ## create UID/GID for non-root user
@@ -32,42 +31,58 @@ RUN groupadd --gid $GID $USERNAME && \
 # stage common_pkg_provider
 FROM builder AS common_pkg_provider
 
-# Re-declare ARG for username
 ARG USERNAME=myuser
 
-## install vim, git, pip, venv, valgrind (Python 3.10 is default in Ubuntu 22.04)
-RUN apt-get update && \
-    apt-get install -y \
-        vim git curl wget ca-certificates build-essential \
-        python3 python3-pip python3-venv python3-dev \
-        valgrind && \
+## Install Python 3.11 first and set as default
+RUN apt-get update && apt-get upgrade -y && \
+    apt-get install -y software-properties-common && \
+    add-apt-repository -y ppa:deadsnakes/ppa && \
+    apt-get update && \
+    apt-get install -y python3.11 python3.11-venv python3.11-dev python3.11-distutils && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-## Create virtual environment for Python packages
-RUN python3 -m venv /opt/venv && \
-    /opt/venv/bin/pip install --upgrade pip
+## Set python3.11 as default python3
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 && \
+    update-alternatives --set python3 /usr/bin/python3.11
 
-## install ONNX runtime, utilities, and PyTorch (CPU version)
-RUN /opt/venv/bin/pip install --no-cache-dir \
-    onnx \
-    onnxruntime \
-    tabulate \
-    tqdm \
-    matplotlib \
-    pandas \
-    numpy \
-    scikit-learn \
+## Create python symlink for compatibility
+RUN ln -s /usr/bin/python3 /usr/bin/python
+
+## Install pip for Python 3.11
+RUN apt-get update && \
+    apt-get install -y curl && \
+    curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+## install vim, git, and other development tools
+RUN apt-get update && \
+    apt-get install -y \
+        vim git wget ca-certificates \
+        build-essential valgrind graphviz && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+## ONNX packages compatible with TVM 0.18
+RUN pip3 install --no-cache-dir \
+    onnx==1.14.0 \
+    onnxruntime==1.15.1 \
+    protobuf==3.20.3
+
+## Install TVM dependencies
+RUN pip3 install --no-cache-dir \
+    decorator attrs scipy tornado psutil cloudpickle graphviz
+
+## Install other common packages
+RUN pip3 install --no-cache-dir \
+    tabulate tqdm matplotlib pandas \
+    numpy scikit-learn \
     --extra-index-url https://download.pytorch.org/whl/cpu \
-    torch \
-    torchvision
-## Add venv to PATH so installed packages are available globally
-ENV PATH="/opt/venv/bin:$PATH"
+    torch torchvision
 
 # stage verilator_provider
 FROM builder AS verilator_provider
 
 RUN apt-get update && apt-get install -y \
-    python3 python3-pip git make autoconf g++ flex bison help2man && \
+    python3 git make autoconf g++ flex bison help2man && \
     git clone https://github.com/verilator/verilator.git && \
     cd verilator && \
     git checkout v5.030 && \
@@ -78,7 +93,7 @@ RUN apt-get update && apt-get install -y \
 # stage systemc_provider
 FROM builder AS systemc_provider
 
-RUN apt-get update && \
+RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y wget tar autoconf automake libtool g++ make && \
     wget https://github.com/accellera-official/systemc/archive/refs/tags/2.3.4.tar.gz && \
     tar -xzf 2.3.4.tar.gz && \
@@ -91,20 +106,56 @@ RUN apt-get update && \
 
 ENV SYSTEMC_HOME=/opt/systemc-2.3.4
 
+# stage tvm_provider
+FROM builder AS tvm_provider
+
+RUN apt-get update && apt-get upgrade -y && \
+    apt-get install -y wget tar autoconf automake libtool gcc g++ make cmake git && \
+    apt-get install -y libzstd-dev libpolly-18-dev llvm-18-dev clang-18 libclang-18-dev llvm-18 zlib1g-dev llvm-dev && \
+    git clone https://github.com/apache/tvm tvm && \
+    cd tvm && git checkout --track origin/v0.18.0 && \
+    git submodule update --init --recursive && \
+    mkdir build && cd build && cp ../cmake/config.cmake . &&  \
+    echo "set(USE_MICRO ON)" >> config.cmake && \
+    echo "set(USE_MICRO_STANDALONE_RUNTIME ON)" >> config.cmake && \
+    echo "set(USE_LLVM ON)" >> config.cmake && \
+    echo "set(USE_MICRO ON)" >> config.cmake && \
+    echo "set(CMAKE_BUILD_TYPE RelWithDebInfo)" >> config.cmake && \
+    echo "set(USE_LLVM \"llvm-config --ignore-libllvm --link-static\")" >> config.cmake && \
+    echo "set(HIDE_PRIVATE_SYMBOLS ON)" >> config.cmake && \
+    cmake .. && cmake --build . --parallel $(nproc) && \
+    cd /tvm && mkdir /tvm_install && \
+    cp -r include /tvm_install/include && \
+    cp -r python /tvm_install/python && \
+    mkdir -p /tvm_install/build && \
+    cp build/libtvm*.so /tvm_install/build && \
+    cp README.md /tvm_install/ && \
+    cp version.py /tvm_install/
+    
 # stage base to copy all other stage
 FROM common_pkg_provider AS base
 
-# Re-declare ARG for username
 ARG USERNAME=myuser
+
+## Install graphviz for visuTVM
+RUN apt-get update && \
+    apt-get install -y graphviz && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY --from=verilator_provider /usr/local /usr/local
 COPY --from=systemc_provider /opt/systemc-2.3.4 /opt/systemc-2.3.4
-# COPY --from=tvm_provider /tvm_install /home/myuser/tvm
+COPY --from=tvm_provider /tvm_install /home/myuser/tvm
 
+## system authority settings
 COPY ./eman.sh /usr/local/bin/eman
 RUN chmod +x /usr/local/bin/eman
-# RUN sudo chown -R $USERNAME:$USERNAME /home/myuser/tvm
+RUN sudo chown -R $USERNAME:$USERNAME /home/myuser/tvm
+ENV SYSTEMC_HOME=/opt/systemc-2.3.4
 
-## Ending
+## Setup TVM Python path
+ENV PYTHONPATH="/home/myuser/tvm/python"
+ENV TVM_HOME="/home/myuser/tvm"
+
+## End
 USER $USERNAME
 WORKDIR /home/$USERNAME
