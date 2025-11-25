@@ -1,7 +1,9 @@
 #!/bin/bash
 
 # manually build cmd: docker build -t aoc2026-env . --no-cache --progress=plain
+# manually build cmd (base): docker build --target common_pkg_provider -t base . --no-cache --progress=plain
 # manually run cmd: docker run -dit --name full_test_1 -p 2222:22 -v ./test:/home/myuser/test aoc2026-env /bin/bash
+# manually run cmd (base): docker run -it --name aoc-env aoc2026-env /bin/bash
 # push image to cloud: docker push aoc2026-env
 # manually enter container: docker exec -it aoc2026-env /bin/bash
 
@@ -60,11 +62,22 @@ run_container() {
   CONTAINER_STATUS=$(docker ps -a --filter "name=^/${CONTAINER_NAME}$" --format '{{.Status}}')
 
   # mount path
-  # TODO: set eman script mounting position (and other test scripts')
+  # Auto-detect AOC2026 directory and mount to /home/myuser/AOC2026
+  if [ ${#MOUNT_PATHS[@]} -eq 0 ]; then
+    # Try to find AOC2026 directory (go up one level from lab-0)
+    AOC_DIR="$(cd .. && pwd)"
+    if [ -d "$AOC_DIR" ]; then
+      MOUNT_PATHS+=("$AOC_DIR")
+      echo "Auto-detected AOC2026 directory: $AOC_DIR"
+    fi
+  fi
+  
   MOUNTS_ARGS=""
   for path in "${MOUNT_PATHS[@]}"; do
     abs_path=$(realpath "$path")
-    MOUNTS_ARGS+=" -v \"$abs_path:$abs_path\""
+    # Mount to /home/myuser/AOC2026
+    MOUNTS_ARGS+=" -v $abs_path:/home/myuser/AOC2026"
+    echo "Mounting: $abs_path -> /home/myuser/AOC2026"
   done
 
   if [[ "$CONTAINER_STATUS" == *"Up"* ]]; then
@@ -78,9 +91,8 @@ run_container() {
 
   else
     echo "Creating and starting new container '$CONTAINER_NAME'..."
-    eval docker run -dit --name "$CONTAINER_NAME" \
+    docker run -dit --name "$CONTAINER_NAME" \
       -p 2222:22 \
-      -v ./test:/home/myuser/test \
       $MOUNTS_ARGS \
       "$IMAGE_NAME" /bin/bash
   fi
