@@ -61,23 +61,22 @@ build_image() {
 run_container() {
   CONTAINER_STATUS=$(docker ps -a --filter "name=^/${CONTAINER_NAME}$" --format '{{.Status}}')
 
-  # mount path
-  # Auto-detect AOC2026 directory and mount to /home/myuser/AOC2026
-  if [ ${#MOUNT_PATHS[@]} -eq 0 ]; then
-    # Try to find AOC2026 directory (go up one level from lab-0)
-    AOC_DIR="$(cd .. && pwd)"
-    if [ -d "$AOC_DIR" ]; then
-      MOUNT_PATHS+=("$AOC_DIR")
-      echo "Auto-detected AOC2026 directory: $AOC_DIR"
+  # Default mount if none is specified
+  if [[ ${#MOUNT_PATHS[@]} -eq 0 ]]; then
+    if [ -d "./workspace" ]; then
+      WORKSPACE_DIR="$(cd ./workspace && pwd)"
+      MOUNT_PATHS+=("$WORKSPACE_DIR")
+      echo "Auto-detected workspace directory: $WORKSPACE_DIR"
     fi
   fi
-  
+  # mount path
+  # TODO: set eman script mounting position (and other test scripts')
   MOUNTS_ARGS=""
   for path in "${MOUNT_PATHS[@]}"; do
     abs_path=$(realpath "$path")
-    # Mount to /home/myuser/AOC2026
-    MOUNTS_ARGS+=" -v $abs_path:/home/myuser/AOC2026"
-    echo "Mounting: $abs_path -> /home/myuser/AOC2026"
+    # Mount to /home/myuser/workspace
+    MOUNTS_ARGS+=" -v $abs_path:/home/myuser/workspace"
+    echo "Mounting: $abs_path -> /home/myuser/workspace"
   done
 
   if [[ "$CONTAINER_STATUS" == *"Up"* ]]; then
