@@ -97,15 +97,15 @@ RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y wget tar autoconf automake libtool gcc g++ make cmake git && \
     apt-get install -y libzstd-dev libpolly-18-dev llvm-18-dev clang-18 libclang-18-dev llvm-18 zlib1g-dev llvm-dev && \
     git clone https://github.com/apache/tvm tvm && \
-    cd tvm && git checkout --track origin/v0.18.0 && \
+    cd tvm && git checkout v0.18.0 && \
     git submodule update --init --recursive && \
     mkdir build && cd build && cp ../cmake/config.cmake . &&  \
     echo "set(USE_MICRO ON)" >> config.cmake && \
     echo "set(USE_MICRO_STANDALONE_RUNTIME ON)" >> config.cmake && \
     echo "set(USE_LLVM ON)" >> config.cmake && \
     echo "set(USE_MICRO ON)" >> config.cmake && \
-    echo "set(CMAKE_BUILD_TYPE RelWithDebInfo)" >> config.cmake && \
-    echo "set(USE_LLVM \"llvm-config-18 --link-shared\")" >> config.cmake && \
+    echo "set(CMAKE_BUILD_TYPE Release)" >> config.cmake && \
+    echo "set(USE_LLVM \"llvm-config-18 --ignore-libllvm --link-static\")" >> config.cmake && \
     echo "set(HIDE_PRIVATE_SYMBOLS ON)" >> config.cmake && \
     cmake .. && cmake --build . && \
     cd /tvm && mkdir /tvm_install && \
