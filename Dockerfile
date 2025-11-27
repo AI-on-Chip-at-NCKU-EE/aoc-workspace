@@ -90,22 +90,6 @@ RUN apt-get update && apt-get install -y \
     cd .. && rm -rf verilator && \
     rm -rf /var/lib/apt/lists/*
 
-# stage systemc_provider
-FROM builder AS systemc_provider
-
-RUN apt-get update && apt-get upgrade -y && \
-    apt-get install -y wget tar autoconf automake libtool g++ make && \
-    wget https://github.com/accellera-official/systemc/archive/refs/tags/2.3.4.tar.gz && \
-    tar -xzf 2.3.4.tar.gz && \
-    cd systemc-2.3.4 && \
-    mkdir objdir && autoreconf -i && cd objdir && \
-    ../configure --prefix=/opt/systemc-2.3.4 && \
-    make -j$(nproc) && make install && \
-    cd ../.. && rm -rf 2.3.4.tar.gz && rm -rf systemc-2.3.4 && \
-    rm -rf /var/lib/apt/lists/*
-
-ENV SYSTEMC_HOME=/opt/systemc-2.3.4
-
 # stage tvm_provider
 FROM builder AS tvm_provider
 
@@ -113,17 +97,17 @@ RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y wget tar autoconf automake libtool gcc g++ make cmake git && \
     apt-get install -y libzstd-dev libpolly-18-dev llvm-18-dev clang-18 libclang-18-dev llvm-18 zlib1g-dev llvm-dev && \
     git clone https://github.com/apache/tvm tvm && \
-    cd tvm && git checkout --track origin/v0.18.0 && \
+    cd tvm && git checkout v0.18.0 && \
     git submodule update --init --recursive && \
     mkdir build && cd build && cp ../cmake/config.cmake . &&  \
     echo "set(USE_MICRO ON)" >> config.cmake && \
     echo "set(USE_MICRO_STANDALONE_RUNTIME ON)" >> config.cmake && \
     echo "set(USE_LLVM ON)" >> config.cmake && \
     echo "set(USE_MICRO ON)" >> config.cmake && \
-    echo "set(CMAKE_BUILD_TYPE RelWithDebInfo)" >> config.cmake && \
+    echo "set(CMAKE_BUILD_TYPE Release)" >> config.cmake && \
     echo "set(USE_LLVM \"llvm-config --ignore-libllvm --link-static\")" >> config.cmake && \
     echo "set(HIDE_PRIVATE_SYMBOLS ON)" >> config.cmake && \
-    cmake .. && cmake --build . --parallel $(nproc) && \
+    cmake .. && cmake --build . && \
     cd /tvm && mkdir /tvm_install && \
     cp -r include /tvm_install/include && \
     cp -r python /tvm_install/python && \
@@ -143,14 +127,12 @@ RUN apt-get update && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY --from=verilator_provider /usr/local /usr/local
-COPY --from=systemc_provider /opt/systemc-2.3.4 /opt/systemc-2.3.4
 COPY --from=tvm_provider /tvm_install /home/myuser/tvm
 
 ## system authority settings
 COPY ./eman.sh /usr/local/bin/eman
 RUN chmod +x /usr/local/bin/eman
 RUN sudo chown -R $USERNAME:$USERNAME /home/myuser/tvm
-ENV SYSTEMC_HOME=/opt/systemc-2.3.4
 
 ## Setup TVM Python path
 ENV PYTHONPATH="/home/myuser/tvm/python"
