@@ -105,7 +105,7 @@ RUN apt-get update && apt-get upgrade -y && \
     echo "set(USE_LLVM ON)" >> config.cmake && \
     echo "set(USE_MICRO ON)" >> config.cmake && \
     echo "set(CMAKE_BUILD_TYPE Release)" >> config.cmake && \
-    echo "set(USE_LLVM \"llvm-config --ignore-libllvm --link-static\")" >> config.cmake && \
+    echo "set(USE_LLVM \"llvm-config-18 --ignore-libllvm --link-static\")" >> config.cmake && \
     echo "set(HIDE_PRIVATE_SYMBOLS ON)" >> config.cmake && \
     cmake .. && cmake --build . && \
     cd /tvm && mkdir /tvm_install && \
@@ -132,12 +132,11 @@ COPY --from=tvm_provider /tvm_install /home/myuser/tvm
 ## system authority settings
 COPY ./eman.sh /usr/local/bin/eman
 RUN chmod +x /usr/local/bin/eman
-RUN sudo chown -R $USERNAME:$USERNAME /home/myuser/tvm
+RUN sudo chown -R $USERNAME:$USERNAME /home/$USERNAME/tvm
 
 ## Setup TVM Python path
-ENV PYTHONPATH="/home/myuser/tvm/python"
-ENV TVM_HOME="/home/myuser/tvm"
-
+ENV PYTHONPATH="/home/$USERNAME/tvm/python"
+ENV TVM_HOME="/home/$USERNAME/tvm"
 ## End
 USER $USERNAME
 WORKDIR /home/$USERNAME
