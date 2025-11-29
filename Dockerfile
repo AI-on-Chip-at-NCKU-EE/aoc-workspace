@@ -95,7 +95,7 @@ FROM builder AS tvm_provider
 
 ## Install TVM build dependencies (specifically LLVM 18)
 RUN apt-get update && apt-get upgrade -y && \
-    apt-get install -y wget tar autoconf automake libtool gcc g++ make cmake git $$\
+    apt-get install -y wget tar autoconf automake libtool gcc g++ make cmake git \
     libzstd-dev libpolly-18-dev llvm-18-dev clang-18 libclang-18-dev zlib1g-dev
 
 ## Clone and checkout TVM v0.18.0
