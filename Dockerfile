@@ -74,7 +74,7 @@ RUN pip3 install --no-cache-dir \
 ## Install other common packages
 RUN pip3 install --no-cache-dir \
     tabulate tqdm matplotlib pandas \
-    numpy scikit-learn \
+    numpy==1.26.4 scikit-learn \
     --extra-index-url https://download.pytorch.org/whl/cpu \
     torch torchvision
 
@@ -114,7 +114,6 @@ RUN cp ../cmake/config.cmake . && \
     echo "set(HIDE_PRIVATE_SYMBOLS ON)" >> config.cmake
 
 ## Build TVM 
-# Note: Parallelism limited to 4 to prevent OOM on constrained environments
 RUN cmake .. && \
     cmake --build .
 
@@ -143,6 +142,8 @@ COPY --from=tvm_provider --chown=$USERNAME:$USERNAME /tvm_install /home/$USERNAM
 ## system authority settings
 COPY ./eman.sh /usr/local/bin/eman
 RUN chmod +x /usr/local/bin/eman
+RUN mkdir -p /usr/local/share/eman
+COPY ./celebration.txt /usr/local/share/eman/celebration.txt
 
 ## Setup TVM Python path
 ENV PYTHONPATH="/home/$USERNAME/tvm/python"
