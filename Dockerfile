@@ -11,9 +11,6 @@ RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y bash openssh-server sudo && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-## set default shell as bash
-CMD ["/bin/bash"]
-
 ## set backup password for root
 RUN passwd -d root
 
@@ -27,11 +24,8 @@ RUN groupadd --gid $GID $USERNAME && \
     echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/"${USERNAME}" && \
     passwd -d "${USERNAME}"
 
-
 # stage common_pkg_provider
 FROM builder AS common_pkg_provider
-
-ARG USERNAME=myuser
 
 ## Install Python 3.11 first and set as default
 RUN apt-get update && apt-get upgrade -y && \
@@ -128,8 +122,6 @@ RUN mkdir -p /tvm_install/build && \
 # stage base to copy all other stage
 FROM common_pkg_provider AS base
 
-ARG USERNAME=myuser
-
 ## Install graphviz for visuTVM
 RUN apt-get update && \
     apt-get install -y graphviz && \
@@ -140,10 +132,12 @@ COPY --from=verilator_provider /usr/local /usr/local
 COPY --from=tvm_provider --chown=$USERNAME:$USERNAME /tvm_install /home/$USERNAME/tvm
 
 ## system authority settings
-COPY ./eman.sh /usr/local/bin/eman
+COPY ./scripts/eman.sh /usr/local/bin/eman
 RUN chmod +x /usr/local/bin/eman
 RUN mkdir -p /usr/local/share/eman
-COPY ./celebration.txt /usr/local/share/eman/celebration.txt
+COPY ./scripts/celebration.txt /usr/local/share/eman/celebration.txt
+
+RUN mkdir -p /home/"${USERNAME}"/projects
 
 ## Setup TVM Python path
 ENV PYTHONPATH="/home/$USERNAME/tvm/python"
@@ -152,3 +146,6 @@ ENV TVM_HOME="/home/$USERNAME/tvm"
 ## End
 USER $USERNAME
 WORKDIR /home/$USERNAME
+
+## set default shell as bash
+CMD ["/bin/bash"]

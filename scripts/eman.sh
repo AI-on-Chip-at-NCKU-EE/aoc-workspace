@@ -5,13 +5,13 @@ set -e
 help() {
     cat <<EOF
 
-Usage: eman <command>
-
-Environment Manager for Docker
+Welcome to use the Docker Workspace for AOC.
+You can type 'eman' anywhere in the container to see this message.
+All permanent projects are in the ~/projects directory.
 
 Available commands:
 
-  eman help                       : show this help message
+  eman help                      : show this help message
 
   eman c-compiler-version        : print the version of default C compiler and the version of GNU Make
   eman c-compiler-example        : compile and run the C/C++ example(s)
@@ -37,8 +37,45 @@ c_compiler_version() {
 
 c_compiler_example() {
     echo "[C Compiler Example]"
-    cd "${HOME}"/test/c-compiler
-    make
+    local TMPDIR=$(mktemp -d)
+    trap "rm -rf $TMPDIR" EXIT
+    
+    # Create main.c
+    cat > "$TMPDIR/main.c" << 'CEOF'
+#include <stdio.h>
+
+int main() {
+    int arr[2][3][4] = {
+        {
+            {1, 2, 3, 4}, 
+            {5, 6, 7, 8}, 
+            {9, 10, 11, 12}
+        },
+        {
+            {13, 14, 15, 16}, 
+            {17, 18, 19, 20}, 
+            {21, 22, 23, 24}
+        }
+    };
+    
+    int *ptr = (int*)arr;
+    
+    printf("-----  print out  ----- \n");
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 3; j++) {
+            for (int k = 0; k < 4; k++) {
+                int idx = i*12 + j*4 + k;
+                printf("addr: %p , value: %d\n", &arr[idx], *(ptr + idx));
+            }
+        }
+    }
+}
+CEOF
+
+    # Compile and run
+    cd "$TMPDIR"
+    gcc -Wall -Wextra -O2 -o main main.c
+    ./main
 }
 
 check_verilator() {
@@ -52,8 +89,79 @@ check_verilator() {
 
 verilator_example() {
     echo "[Verilator Example]"
-    cd "${HOME}"/test/verilator
-    make
+    local TMPDIR=$(mktemp -d)
+    trap "rm -rf $TMPDIR" EXIT
+    
+    # Create Counter.v
+    cat > "$TMPDIR/Counter.v" << 'VEOF'
+module Counter(
+    input clk,
+    input rst,
+    input [8:0] max,
+    output reg [8:0] out
+);
+    reg [8:0] cnt;
+
+    always @(posedge clk, posedge rst) begin
+        if (rst) cnt <= max;
+        else if (cnt == 0) cnt <= max;
+        else cnt <= cnt - 1;
+    end
+
+    always @(*) out = cnt;
+
+endmodule
+VEOF
+
+    # Create testbench.cc
+    cat > "$TMPDIR/testbench.cc" << 'CPPEOF'
+#include <iostream>
+
+#include "VCounter.h"
+#include "verilated_vcd_c.h"
+
+int main() {
+  Verilated::traceEverOn(true);
+  VerilatedVcdC* fp = new VerilatedVcdC();
+
+  auto dut = new VCounter;
+  dut->trace(fp, 0);
+  fp->open("wave.vcd");
+
+  int clk = 0;
+  const int maxclk = 10;
+
+  dut->rst = 1;
+  dut->max = 9;
+  dut->clk = 1;
+  dut->eval();
+  fp->dump(clk++);
+
+  dut->rst = 0;
+  while (clk < maxclk << 1) {
+    // falling edge
+    dut->clk = 0;
+    dut->eval();
+    fp->dump(clk++);
+
+    // rising edge
+    dut->clk = 1;
+    dut->eval();
+    fp->dump(clk++);
+    std::cout << "count: " << dut->out << std::endl;
+  }
+
+  fp->close();
+  dut->final();
+  delete dut;
+  return 0;
+}
+CPPEOF
+
+    # Compile and run
+    cd "$TMPDIR"
+    verilator -Wall --cc --exe --build --trace Counter.v testbench.cc
+    ./obj_dir/VCounter
 }
 
 tvm_version() {
@@ -110,6 +218,12 @@ check_all() {
     (tvm_version) || FAILED=true
     echo ""
     (ml_packages_version) || FAILED=true
+    echo ""
+    echo "=== Compilation Check - C & Verilator ==="
+    echo ""
+    (c_compiler_example) || FAILED=true
+    echo ""
+    (verilator_example) || FAILED=true
     echo ""
     echo "=== All checks completed ==="
     echo ""

@@ -29,6 +29,7 @@ error() { echo -e "\033[0;31m[ERROR]\033[0m $*"; }
 IMAGE_NAME="aoc2026-env"
 CONTAINER_NAME="aoc2026-container"
 MOUNT_PATHS=()
+PROJECTS_DIR="${PWD}/projects/"
 
 # --- Parse CLI ---
 while [[ $# -gt 0 ]]; do
@@ -66,6 +67,8 @@ done
 
 # --- Check if image exists ---
 build_image() {
+  [[ -d ${PROJECTS_DIR} ]] || mkdir -p "${PROJECTS_DIR}"
+  
   if docker images "$IMAGE_NAME" | grep -q "$IMAGE_NAME"; then
     success "Docker image '$IMAGE_NAME' already exists"
     info "You can delete it with: docker rmi $IMAGE_NAME"
@@ -81,19 +84,19 @@ run_container() {
 
   # Default mount if none is specified
   if [[ ${#MOUNT_PATHS[@]} -eq 0 ]]; then
-    if [ -d "./workspace" ]; then
-      WORKSPACE_DIR="$(cd ./workspace && pwd)"
+    if [ -d "./projects" ]; then
+      WORKSPACE_DIR="$(cd ./projects && pwd)"
       MOUNT_PATHS+=("$WORKSPACE_DIR")
-      info "Auto-detected workspace directory: $WORKSPACE_DIR"
+      info "Auto-detected projects directory: $WORKSPACE_DIR"
     fi
   fi
   # mount path
   MOUNTS_ARGS=""
   for path in "${MOUNT_PATHS[@]}"; do
     abs_path=$(realpath "$path")
-    # Mount to /home/myuser/workspace
-    MOUNTS_ARGS+=" -v $abs_path:/home/myuser/workspace"
-    info "Mounting: $abs_path -> /home/myuser/workspace"
+    # Mount to /home/myuser/projects
+    MOUNTS_ARGS+=" -v $abs_path:/home/myuser/projects"
+    info "Mounting: $abs_path -> /home/myuser/projects"
   done
 
   if [[ "$CONTAINER_STATUS" == *"Up"* ]]; then
@@ -115,6 +118,7 @@ run_container() {
       $MOUNTS_ARGS \
       "$IMAGE_NAME" /bin/bash
     success "Container created and started"
+    docker exec -it "$CONTAINER_NAME" /bin/bash
   fi
 }
 
@@ -150,8 +154,8 @@ Commands:
 Options:
   -i, --image <name>        Custom Docker image name (default: $IMAGE_NAME)
   -c, --container <name>    Custom container name (default: $CONTAINER_NAME)
-  -m, --mount <path>        Mount path to /home/myuser/workspace
-                            (default: auto-detect ./workspace)
+  -m, --mount <path>        Mount path to /home/myuser/projects
+                            (default: auto-detect ./projects)
   -u, --user <name>         Reserved for future use
   -h, --host <name>         Reserved for future use
 
@@ -163,7 +167,7 @@ Examples:
   $0 run --image my-custom-image
 
   # Combine multiple options (using short flags for brevity)
-  $0 run -i custom-env -c dev-container -m ./workspace
+  $0 run -i custom-env -c dev-container -m ./projects
 
 EOF
 }
