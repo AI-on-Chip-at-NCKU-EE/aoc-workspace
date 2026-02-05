@@ -38,7 +38,7 @@ Think of them as "Mold" vs. "Product":
 ### File Structure
 
 ```text
-lab-0/
+aoc-workspace/
 ├── Dockerfile          # Docker image definition
 ├── docker.sh           # Docker container management script
 ├── eman.sh             # Environment testing tool
@@ -47,7 +47,7 @@ lab-0/
 ├── test/               # Test files directory
 │   ├── c-compiler/     # C/C++ compilation tests
 │   └── verilator/      # Verilator tests
-└── workspace/          # User workspace for future labs
+└── projects/           # User project workspace for future labs
     ├── lab1/
     ├── lab2/
     └── ...
@@ -116,7 +116,7 @@ When you execute this command, the script first checks if the `aoc2026-env` imag
 
 Next, it checks the status of the `aoc2026-container`. If the container doesn't exist, it creates a new one using `docker run`. If it exists but is stopped, it wakes it up with `docker start`. If it's already running, it simply connects you to the existing session.
 
-Crucially, the script mounts your local `./workspace` folder to `/home/myuser/workspace` inside the container. This is vital because Docker containers are ephemeral; if you delete a container, any files inside it are lost. By mounting a folder, your code lives safely on your actual computer (Host), while the container (Guest) can read and compile it. **Always save your work in `workspace`!**
+Crucially, the script mounts your local `./projects` folder to `/home/myuser/projects` inside the container. This is vital because Docker containers are ephemeral; if you delete a container, any files inside it are lost. By mounting a folder, your code lives safely on your actual computer (Host), while the container (Guest) can read and compile it. **Always save your work in `projects`!**
 
 **2. Cleanup Environment**
 ```bash
@@ -182,10 +182,10 @@ This command tags the image as `aoc2026-env` and tells Docker to look for the `D
 ```bash
 docker run -dit --name aoc2026-container \
   -p 2222:22 \
-  -v ./workspace:/home/myuser/workspace \
+  -v ./projects:/home/myuser/projects \
   aoc2026-env /bin/bash
 ```
-This command runs the container in detached mode (`-d`), allowing it to run in the background, while keeping it interactive (`-it`). It maps port 2222 on your machine to port 22 inside the container for SSH access, and mounts your local workspace folder to the container's workspace directory.
+This command runs the container in detached mode (`-d`), allowing it to run in the background, while keeping it interactive (`-it`). It maps port 2222 on your machine to port 22 inside the container for SSH access, and mounts your local projects folder to the container's projects directory.
 
 **3. Enter Container**
 ```bash

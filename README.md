@@ -31,7 +31,7 @@ Use `docker.sh` to manage your development container:
 |------------------|-----------------------------------------------------|
 | Docker Image     | `aoc2026-env`                                       |
 | Container Name   | `aoc2026-container`                                 |
-| Default Mount    | `./workspace:/home/myuser/workspace` (auto-detect) |
+| Default Mount    | `./projects:/home/myuser/projects` (auto-detect) |
 
 ### Environment Manager (`eman`)
 
@@ -52,7 +52,7 @@ The environment includes:
 ## Features
 
 - Auto-build Docker image if not present
-- Auto-detect and mount `./workspace` directory
+- Auto-detect and mount `./projects` directory
 - Reuse existing container across sessions
 - Color-coded output for clarity
 - Built-in environment validation tool
@@ -83,5 +83,5 @@ The environment includes:
 
 **Quick workflow with short flags:**
 ```bash
-./docker.sh run -i custom-env -c dev -m ./workspace
+./docker.sh run -i custom-env -c dev -m ./projects
 ```
