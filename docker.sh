@@ -6,7 +6,7 @@
 #   docker build --target common_pkg_provider -t base . --no-cache --progress=plain
 # manually run cmd:
 #   docker run -dit --name full_test_1 -p 2222:22 \
-#     -v ./test:/home/myuser/test aoc2026-env /bin/bash
+#     -v ./test:/home/$USER_NAME/test aoc2026-env /bin/bash
 # manually run cmd (base):
 #   docker run -it --name aoc-env aoc2026-env /bin/bash
 # push image to cloud:
@@ -27,6 +27,7 @@ error() { echo -e "\033[0;31m[ERROR]\033[0m $*"; }
 
 # default parameters
 IMAGE_NAME="aoc2026-env"
+USER_NAME="$(id -un)"
 CONTAINER_NAME="aoc2026-container"
 MOUNT_PATHS=()
 PROJECTS_DIR="${PWD}/projects/"
@@ -46,10 +47,7 @@ while [[ $# -gt 0 ]]; do
       CONTAINER_NAME="$2"
       shift 2
       ;;
-    -u|--user)
-      USERNAME="$2"
-      shift 2
-      ;;
+
     -h|--host)
       HOSTNAME="$2"
       shift 2
@@ -74,7 +72,13 @@ build_image() {
     info "You can delete it with: docker rmi $IMAGE_NAME"
   else
     info "Building Docker image '$IMAGE_NAME'..."
-    docker build -t "$IMAGE_NAME" . --no-cache
+    
+    # Pass host UID/GID to ensure container user matches host user
+    docker build \
+            --build-arg USERNAME=$USER_NAME \
+            --build-arg UID="$(id -u)" \
+            --build-arg GID="$(id -g)" \
+            -t "${IMAGE_NAME}" .
   fi
 }
 
@@ -94,9 +98,9 @@ run_container() {
   MOUNTS_ARGS=""
   for path in "${MOUNT_PATHS[@]}"; do
     abs_path=$(realpath "$path")
-    # Mount to /home/myuser/projects
-    MOUNTS_ARGS+=" -v $abs_path:/home/myuser/projects"
-    info "Mounting: $abs_path -> /home/myuser/projects"
+    # Mount to /home/$USER_NAME/projects
+    MOUNTS_ARGS+=" -v $abs_path:/home/$USER_NAME/projects"
+    info "Mounting: $abs_path -> /home/$USER_NAME/projects"
   done
 
   if [[ "$CONTAINER_STATUS" == *"Up"* ]]; then
@@ -154,9 +158,9 @@ Commands:
 Options:
   -i, --image <name>        Custom Docker image name (default: $IMAGE_NAME)
   -c, --container <name>    Custom container name (default: $CONTAINER_NAME)
-  -m, --mount <path>        Mount path to /home/myuser/projects
+  -m, --mount <path>        Mount path to /home/USER_NAME/projects
                             (default: auto-detect ./projects)
-  -u, --user <name>         Reserved for future use
+
   -h, --host <name>         Reserved for future use
 
 Examples:
