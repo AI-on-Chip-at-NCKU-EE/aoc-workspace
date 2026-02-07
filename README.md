@@ -66,7 +66,6 @@ The environment includes:
 | `-i`  | `--image`      | Custom Docker image name        |
 | `-c`  | `--container`  | Custom container name           |
 | `-m`  | `--mount`      | Mount path to workspace         |
-| `-u`  | `--user`       | Reserved for future use         |
 | `-h`  | `--host`       | Reserved for future use         |
 
 ### Usage Examples

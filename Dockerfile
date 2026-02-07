@@ -19,10 +19,15 @@ ARG USERNAME=myuser
 ARG UID=1001
 ARG GID=1001
 
-RUN groupadd --gid $GID $USERNAME && \
-    useradd --uid $UID --gid $GID --create-home --shell /bin/bash $USERNAME && \
+## Create UID/GID for non-root user
+## Use -o (non-unique) to allow reusing UID/GID if it conflicts with existing user (e.g. ubuntu user in base image)
+RUN groupadd --gid $GID -o $USERNAME && \
+    useradd --uid $UID --gid $GID -o --create-home --shell /bin/bash $USERNAME && \
     echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/"${USERNAME}" && \
-    passwd -d "${USERNAME}"
+    chmod 0440 /etc/sudoers.d/"${USERNAME}" && \
+    passwd -d "${USERNAME}" && \
+    # Fix ownership of home directory (crucial when UID changed)
+    chown -R $UID:$GID /home/$USERNAME
 
 # stage common_pkg_provider
 FROM builder AS common_pkg_provider
@@ -52,6 +57,7 @@ RUN apt-get update && \
 RUN apt-get update && \
     apt-get install -y \
         vim git wget ca-certificates \
+        gcc-riscv64-unknown-elf binutils-riscv64-unknown-elf \
         build-essential valgrind graphviz && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -137,7 +143,8 @@ RUN chmod +x /usr/local/bin/eman
 RUN mkdir -p /usr/local/share/eman
 COPY ./scripts/celebration.txt /usr/local/share/eman/celebration.txt
 
-RUN mkdir -p /home/"${USERNAME}"/projects
+RUN mkdir -p /home/"${USERNAME}"/projects && \
+    chown -R $UID:$GID /home/"${USERNAME}"/projects
 
 ## Setup TVM Python path
 ENV PYTHONPATH="/home/$USERNAME/tvm/python"
