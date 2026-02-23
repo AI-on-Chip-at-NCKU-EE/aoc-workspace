@@ -14,19 +14,21 @@ RUN apt-get update && apt-get upgrade -y && \
 ## set backup password for root
 RUN passwd -d root
 
+## Delete default ubuntu user if it exists to free up UID/GID 1000
+RUN touch /var/mail/ubuntu && chown ubuntu /var/mail/ubuntu || true && \
+    userdel -r ubuntu || true
+
 ## create UID/GID for non-root user
 ARG USERNAME=myuser
 ARG UID=1001
 ARG GID=1001
 
-## Create UID/GID for non-root user
-## Use -o (non-unique) to allow reusing UID/GID if it conflicts with existing user (e.g. ubuntu user in base image)
-RUN groupadd --gid $GID -o $USERNAME && \
-    useradd --uid $UID --gid $GID -o --create-home --shell /bin/bash $USERNAME && \
+## Removed -o flag to ensure ID uniqueness
+RUN groupadd --gid $GID $USERNAME && \
+    useradd --uid $UID --gid $GID --create-home --shell /bin/bash $USERNAME && \
     echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/"${USERNAME}" && \
     chmod 0440 /etc/sudoers.d/"${USERNAME}" && \
     passwd -d "${USERNAME}" && \
-    # Fix ownership of home directory (crucial when UID changed)
     chown -R $UID:$GID /home/$USERNAME
 
 # stage common_pkg_provider
@@ -113,7 +115,7 @@ RUN cp ../cmake/config.cmake . && \
     echo "set(USE_LLVM \"llvm-config-18 --ignore-libllvm --link-static\")" >> config.cmake && \
     echo "set(HIDE_PRIVATE_SYMBOLS ON)" >> config.cmake
 
-## Build TVM 
+## Build TVM
 RUN cmake .. && \
     cmake --build .
 
@@ -124,9 +126,14 @@ RUN mkdir -p /tvm_install/build && \
     cp /tvm/build/libtvm*.so /tvm_install/build && \
     cp /tvm/README.md /tvm_install/ && \
     cp /tvm/version.py /tvm_install/
-    
+
 # stage base to copy all other stage
 FROM common_pkg_provider AS base
+
+## create UID/GID for non-root user again in base stage
+ARG USERNAME=myuser
+ARG UID=1001
+ARG GID=1001
 
 ## Install graphviz for visuTVM
 RUN apt-get update && \
