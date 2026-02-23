@@ -58,7 +58,7 @@ RUN apt-get update && \
     apt-get install -y \
         vim git wget ca-certificates \
         gcc-riscv64-unknown-elf binutils-riscv64-unknown-elf \
-        build-essential valgrind graphviz && \
+        build-essential valgrind graphviz zlib1g-dev && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ## ONNX packages compatible with TVM 0.18
