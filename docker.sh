@@ -99,7 +99,8 @@ run_container() {
   for path in "${MOUNT_PATHS[@]}"; do
     abs_path=$(realpath "$path")
     # Mount to /home/$USER_NAME/projects
-    MOUNTS_ARGS+=" -v $abs_path:/home/$USER_NAME/projects"
+    dest="/home/$USER_NAME/projects/$(basename "$abs_path")"
+    MOUNTS_ARGS+=" -v $abs_path:$dest"
     info "Mounting: $abs_path -> /home/$USER_NAME/projects"
   done
 

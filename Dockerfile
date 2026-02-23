@@ -24,12 +24,16 @@ ARG UID=1001
 ARG GID=1001
 
 ## Removed -o flag to ensure ID uniqueness
-RUN groupadd --gid $GID $USERNAME && \
-    useradd --uid $UID --gid $GID --create-home --shell /bin/bash $USERNAME && \
-    echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/"${USERNAME}" && \
-    chmod 0440 /etc/sudoers.d/"${USERNAME}" && \
-    passwd -d "${USERNAME}" && \
-    chown -R $UID:$GID /home/$USERNAME
+
+RUN set -eux; \
+    if ! getent group "${GID}" >/dev/null; then \
+        groupadd --gid "${GID}" "${USERNAME}"; \
+    fi; \
+    useradd --uid "${UID}" --gid "${GID}" --create-home --shell /bin/bash "${USERNAME}"; \
+    echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/"${USERNAME}"; \
+    chmod 0440 /etc/sudoers.d/"${USERNAME}"; \
+    passwd -d "${USERNAME}"; \
+    chown -R "${UID}:${GID}" /home/"${USERNAME}"
 
 # stage common_pkg_provider
 FROM builder AS common_pkg_provider
@@ -149,7 +153,7 @@ ENV LC_ALL=en_US.UTF-8
 
 COPY --from=verilator_provider /usr/local /usr/local
 # Use --chown to avoid layer duplication and disk space issues
-COPY --from=tvm_provider --chown=$USERNAME:$USERNAME /tvm_install /home/$USERNAME/tvm
+COPY --from=tvm_provider --chown=$UID:$GID /tvm_install /home/$USERNAME/tvm
 
 ## system authority settings
 COPY ./scripts/eman.sh /usr/local/bin/eman
