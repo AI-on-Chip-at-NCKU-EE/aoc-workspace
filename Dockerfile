@@ -88,7 +88,7 @@ RUN pip3 install --no-cache-dir \
 FROM builder AS verilator_provider
 
 RUN apt-get update && apt-get install -y \
-    python3 git make autoconf g++ flex bison help2man && \
+    python3 git make autoconf g++ flex bison help2man zlib1g-dev && \
     git clone https://github.com/verilator/verilator.git && \
     cd verilator && \
     git checkout v5.030 && \
