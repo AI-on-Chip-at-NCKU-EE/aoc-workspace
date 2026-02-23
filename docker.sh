@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # manually build cmd:
-#   docker build -t aoc2026-env . --no-cache --progress=plain
+#   docker build -t aoc2026-env . --progress=plain
 # manually build cmd (base):
-#   docker build --target common_pkg_provider -t base . --no-cache --progress=plain
+#   docker build --target common_pkg_provider -t base . --progress=plain
 # manually run cmd:
 #   docker run -dit --name full_test_1 -p 2222:22 \
 #     -v ./test:/home/$USER_NAME/test aoc2026-env /bin/bash
@@ -99,8 +99,7 @@ run_container() {
   for path in "${MOUNT_PATHS[@]}"; do
     abs_path=$(realpath "$path")
     # Mount to /home/$USER_NAME/projects
-    dest="/home/$USER_NAME/projects/$(basename "$abs_path")"
-    MOUNTS_ARGS+=" -v $abs_path:$dest"
+    MOUNTS_ARGS+=" -v $abs_path:/home/$USER_NAME/projects"
     info "Mounting: $abs_path -> /home/$USER_NAME/projects"
   done
 
